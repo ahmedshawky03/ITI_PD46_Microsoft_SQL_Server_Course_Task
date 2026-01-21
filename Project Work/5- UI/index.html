@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ITI Exam System</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            width: 100%;
+            max-width: 800px;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        h1,
+        h2 {
+            color: #333;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input,
+        button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Exam Styles */
+        .question-card {
+            border-bottom: 1px solid #eee;
+            padding: 20px 0;
+        }
+
+        .choice-label {
+            display: block;
+            padding: 8px;
+            cursor: pointer;
+            font-weight: normal;
+        }
+
+        .choice-label:hover {
+            background-color: #f8f9fa;
+        }
+
+        .timer {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #d9534f;
+            text-align: right;
+            margin-bottom: 20px;
+        }
+
+        /* Result Styles */
+        .score-display {
+            font-size: 3em;
+            color: #28a745;
+            text-align: center;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div id="setup-view">
+            <h1>Student Exam Portal</h1>
+            <div class="form-group">
+                <label>Student ID</label>
+                <input type="number" id="studentId" value="1">
+            </div>
+            <div class="form-group">
+                <label>Course ID</label>
+                <input type="number" id="courseId" value="1">
+            </div>
+            <div class="form-group">
+                <label>Number of MCQs</label>
+                <input type="number" id="mcqCount" value="5">
+            </div>
+            <div class="form-group">
+                <label>Number of T/F</label>
+                <input type="number" id="tfCount" value="2">
+            </div>
+            <button onclick="generateExam()">Start Exam</button>
+        </div>
+
+        <div id="exam-view" class="hidden">
+            <div class="timer" id="timer">Time Left: 60:00</div>
+            <div id="questions-container">
+            </div>
+            <button onclick="submitExam()">Submit Answers</button>
+        </div>
+
+        <div id="result-view" class="hidden">
+            <h1>Exam Completed</h1>
+            <p style="text-align:center;">Your results have been submitted.</p>
+            <div class="score-display" id="final-score">--</div>
+            <button onclick="location.reload()">Take Another Exam</button>
+        </div>
+
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let currentAttemptId = null;
+        let timerInterval;
+
+        // 1. Generate Exam
+        async function generateExam() {
+            const studentId = document.getElementById('studentId').value;
+            const courseId = document.getElementById('courseId').value;
+            const mcqCount = document.getElementById('mcqCount').value;
+            const tfCount = document.getElementById('tfCount').value;
+
+            try {
+                const response = await fetch(`${API_URL}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ studentId, courseId, mcqCount, tfCount })
+                });
+
+                if (!response.ok) throw new Error("Failed to generate exam");
+
+                const data = await response.json();
+                currentAttemptId = data.attemptId;
+
+                renderQuestions(data.questions);
+                startTimer(60 * 60); // 60 minutes
+
+                // Switch Views
+                document.getElementById('setup-view').classList.add('hidden');
+                document.getElementById('exam-view').classList.remove('hidden');
+
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        // 2. Render Questions to HTML
+        function renderQuestions(questions) {
+            const container = document.getElementById('questions-container');
+            container.innerHTML = ''; // Clear previous content
+
+            questions.forEach((q, index) => {
+                // 1. Create the Card Wrapper
+                const card = document.createElement('div');
+                card.className = 'question-card';
+
+                // 2. Create and Append Question Title
+                const title = document.createElement('h3');
+                title.textContent = `Q${index + 1}: ${q.text}`;
+                card.appendChild(title);
+
+                // 3. Create and Append Choices
+                q.choices.forEach(choice => {
+                    // Create label container
+                    const label = document.createElement('label');
+                    label.className = 'choice-label';
+                    label.style.display = 'block'; // Ensure it sits on its own line
+
+                    // Create radio button
+                    const radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.name = `q_${q.id}`; // Group radios by question ID
+                    radio.value = choice.id;
+
+                    // Append radio button to label
+                    label.appendChild(radio);
+
+                    // Append the text safely (This allows <script> to show as text)
+                    label.appendChild(document.createTextNode(" " + choice.text));
+
+                    // Add label to card
+                    card.appendChild(label);
+                });
+
+                // 4. Add the finished card to the main container
+                container.appendChild(card);
+            });
+        }
+
+        // 3. Submit Exam
+        async function submitExam() {
+            clearInterval(timerInterval);
+
+            // Collect Answers
+            const answers = [];
+            // Find all radio buttons that are checked
+            const checkedInputs = document.querySelectorAll('input[type="radio"]:checked');
+
+            checkedInputs.forEach(input => {
+                const questionId = input.name.replace('q_', ''); // Extract ID from name "q_101"
+                const choiceId = input.value;
+                answers.push({ questionId: parseInt(questionId), choiceId: parseInt(choiceId) });
+            });
+
+            if (answers.length === 0) {
+                if (!confirm("You haven't answered any questions. Submit anyway?")) return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/submit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ attemptId: currentAttemptId, answers })
+                });
+
+                const result = await response.json();
+
+                // Show Result View
+                document.getElementById('exam-view').classList.add('hidden');
+                document.getElementById('result-view').classList.remove('hidden');
+                document.getElementById('final-score').innerText = `Score: ${result.score}`;
+
+            } catch (error) {
+                alert("Submission failed: " + error.message);
+            }
+        }
+
+        // Helper: Timer
+        function startTimer(duration) {
+            let timer = duration, minutes, seconds;
+            const display = document.getElementById('timer');
+
+            timerInterval = setInterval(function () {
+                minutes = parseInt(timer / 60, 10);
+                seconds = parseInt(timer % 60, 10);
+
+                minutes = minutes < 10 ? "0" + minutes : minutes;
+                seconds = seconds < 10 ? "0" + seconds : seconds;
+
+                display.textContent = "Time Left: " + minutes + ":" + seconds;
+
+                if (--timer < 0) {
+                    submitExam(); // Auto submit
+                }
+            }, 1000);
+        }
+    </script>
+
+</body>
+
+</html>

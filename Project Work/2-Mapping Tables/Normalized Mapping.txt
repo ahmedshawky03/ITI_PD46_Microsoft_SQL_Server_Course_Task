@@ -1,0 +1,33 @@
+Intake(Intake_ID PK, Num, Start_Date, End_Date, Type)
+
+Branch(Branch_ID PK, Name, Address)
+
+Instructor(Instructor_ID PK, Name, Degree, Salary)
+
+Track(Track_ID PK, Name, Instructor_ID FK)
+
+Student(StudID PK, F_Name, L_Name, BD)
+
+Course(Course_ID PK, Name, Duration)
+
+Track_Course( Track_ID FK,Course_ID FK,PK (Track_ID, Course_ID))
+
+Topics(Topic_ID PK, Name, Course_ID FK)
+
+Instructor_Course_Teach(Instructor_ID PK FK, Course_ID PK FK)
+
+Class_offering(Class_offering_ID PK, Intake_ID FK, Branch_ID FK, Track_ID FK)
+
+Exam(Exam_ID PK, Name, Duration, No_of_Questions, Course_ID FK)
+
+Question(Question_ID PK, Text, Type, Num, Course_ID FK)
+
+Choice(Choice_ID PK, Choice_Text, Is_Correct, Question_ID FK)
+
+ExamAttempt(Attempt_ID PK, TotalScore, StudID FK, Exam_ID FK)
+
+Student_Class_Enrollment(StudID PK FK, Class_offering_ID PK FK)
+
+Exam_Question(Exam_ID PK FK, Question_ID PK FK)
+
+Answer_Exam(Attempt_ID PK FK, Question_ID PK FK, Choice_ID FK, Grade)
